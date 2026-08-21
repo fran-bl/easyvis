@@ -3,3 +3,8 @@ export interface MoonInfo {
     phaseAngle: number;
     separation: number;
 }
+export interface Location {
+    lat: number;
+    lng: number;
+    zoom: number;
+}

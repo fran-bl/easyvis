@@ -12,7 +12,9 @@ export interface ObservationPoint {
 	score: number;
 	margin: number | null;
 	altitude: number;
+	azimuth: number;
 	sunAltitude: number;
+	sunAzimuth: number;
 	magnitude: number;
 }
 
@@ -23,11 +25,18 @@ export interface ObservationDay {
 	points: ObservationPoint[];
 }
 
+function truncate(input: string) {
+	if (input.length > 16) {
+		return input.substring(0, 16) + '...';
+	}
+	return input;
+}
+
 export function calculateDay(
 	target: Target,
 	latitude: number,
 	longitude: number,
-	date: Date = new Date(),
+	date: Date | string = new Date(),
 	offsetDays = 0
 ): ObservationDay {
 	const localDay = getLocalDay(latitude, longitude, date).plus({ days: offsetDays });
@@ -39,18 +48,23 @@ export function calculateDay(
 		const astroTime = new Astronomy.AstroTime(localTime.toUTC().toJSDate());
 		const positions = calculatePositions(target, astroTime, observer);
 
-		const moonEq = Astronomy.Equator(Astronomy.Body.Moon, astroTime, observer, true, true);
-		const moonHor = Astronomy.Horizon(astroTime, observer, moonEq.ra, moonEq.dec, "normal");
-		const moonInfo = {
-			altitude: moonHor.altitude,
-			phaseAngle: Astronomy.Illumination(Astronomy.Body.Moon, astroTime).phase_angle,
-			separation: angularSeparation(
-				positions.body.equator.ra,
-				positions.body.equator.dec,
-				moonEq.ra,
-				moonEq.dec
-			),
-		};
+		let moonInfo = null;
+
+		if (target.name !== "Moon") {
+			const moonEq = Astronomy.Equator(Astronomy.Body.Moon, astroTime, observer, true, true);
+			const moonHor = Astronomy.Horizon(astroTime, observer, moonEq.ra, moonEq.dec, "normal");
+
+			moonInfo = {
+				altitude: moonHor.altitude,
+				phaseAngle: Astronomy.Illumination(Astronomy.Body.Moon, astroTime).phase_angle,
+				separation: angularSeparation(
+					positions.body.equator.ra,
+					positions.body.equator.dec,
+					moonEq.ra,
+					moonEq.dec
+				),
+			};
+		}
 
 		const magnitude = target.magnitude(astroTime);
 		const result = visibilityScore(
@@ -67,7 +81,9 @@ export function calculateDay(
 			score: result.score,
 			margin: result.margin,
 			altitude: positions.body.horizon.altitude,
+			azimuth: positions.body.horizon.azimuth,
 			sunAltitude: positions.sun.horizon.altitude,
+			sunAzimuth: positions.sun.horizon.azimuth,
 			magnitude,
 		});
 	}
@@ -75,7 +91,7 @@ export function calculateDay(
 	return {
 		target,
 		date: localDay,
-		timezone: localDay.zoneName ?? "UTC",
+		timezone: truncate(localDay.zoneName ?? "UTC"),
 		points,
 	};
 

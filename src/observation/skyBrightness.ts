@@ -16,7 +16,7 @@ function nanolambertsToMag(bNl: number) {
 }
 
 function moonScattering(rhoDeg: number) {
-    const rho = Math.max(rhoDeg, 0.1);
+    const rho = Math.max(rhoDeg, 0.26);
     const fR = 10 ** 5.36 * (1.06 + Math.cos((rho * Math.PI) / 180.0) ** 2);
     const fM = rho >= 10.0 ? 10 ** (6.15 - rho / 40.0) : 6.2e7 / (rho ** 2);
     return fR + fM;
