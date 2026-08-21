@@ -9,9 +9,10 @@ interface SkyViewProps {
     bodyAzimuth: number;
     sunAltitude: number;
     sunAzimuth: number;
+    followBody: boolean;
 }
 
-export function SkyView({ target, bodyAltitude, bodyAzimuth, sunAltitude, sunAzimuth }: SkyViewProps) {
+export function SkyView({ target, bodyAltitude, bodyAzimuth, sunAltitude, sunAzimuth, followBody }: SkyViewProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const skyRef = useRef<SkyScene | null>(null);
 
@@ -39,7 +40,9 @@ export function SkyView({ target, bodyAltitude, bodyAzimuth, sunAltitude, sunAzi
 
         skyRef.current.setBodyPosition(bodyAltitude, bodyAzimuth);
         skyRef.current.setSunPosition(sunAltitude, sunAzimuth);
-        skyRef.current.setCameraOrientation(bodyAltitude, bodyAzimuth);
+        if (followBody) {
+            skyRef.current.setCameraOrientation(bodyAltitude, bodyAzimuth);
+        }
     }, [
         bodyAltitude,
         bodyAzimuth,

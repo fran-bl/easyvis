@@ -85,8 +85,7 @@ input {
 }
 
 .drawer-toggle.MuiIconButton-root {
-    color: #e8e6dc;
-    background: #111318cc;
+    background: transparent;
 }
 
 .drawer-toggle.MuiIconButton-root:hover {
@@ -172,7 +171,7 @@ h1 span {
 
 .subtitle {
     margin: 0;
-    color: #a7a9b5;
+    color: #4d5374;
     font-size: 17px;
 }
 

@@ -117,16 +117,16 @@ function App() {
             <p className="object-text">The <span className="object-info">{day.target.name}</span> at <span className="mono object-info">{selectedTime.toFormat("HH:mm")}</span>:</p>
             <div className="object-details">
               <div className="flex-item">
+                <span className="object-text">Visibility score:</span>
+                <span className="mono object-info">{formatNumber(selectedPoint.score)}</span>
+              </div>
+              <div className="flex-item">
                 <span className="object-text">Altitude:</span>
                 <span className="mono format-num object-info">{formatNumber(selectedPoint.altitude)}°</span>
               </div>
               <div className="flex-item">
                 <span className="object-text">Azimuth:</span>
                 <span className="mono format-num object-info">{formatNumber(selectedPoint.azimuth)}°</span>
-              </div>
-              <div className="flex-item">
-                <span className="object-text">Visibility score:</span>
-                <span className="mono object-info">{formatNumber(selectedPoint.score)}</span>
               </div>
             </div>
           </div>
@@ -137,11 +137,11 @@ function App() {
           bodyAzimuth={selectedPoint.azimuth}
           sunAltitude={selectedPoint.sunAltitude}
           sunAzimuth={selectedPoint.sunAzimuth}
+          followBody={true}
         />
         <div className="observation-controls" style={{ bottom: drawerHeight }}>
           <IconButton
             className="drawer-toggle"
-            aria-label={open ? "Close visibility forecast" : "Open visibility forecast"}
             onClick={toggleDrawer(!open)}
           >
             {open ? <KeyboardArrowDownIcon /> : <KeyboardArrowUpIcon />}
