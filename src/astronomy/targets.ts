@@ -30,7 +30,7 @@ export class Target {
         return Astronomy.Illumination(this.body, time).mag;
     }
 
-    geoDistance(time: Astronomy.AstroTime, km: Boolean = false) {
+    geoDistance(time: Astronomy.AstroTime, km: boolean = false) {
         return Astronomy.Illumination(this.body, time).geo_dist * (km ? 149597870.691 : 1);
     }
 }

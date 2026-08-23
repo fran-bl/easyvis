@@ -1,5 +1,5 @@
 import type { PointerEvent } from "react";
-import type { ObservationDay } from "../observation/observation";
+import type { ObservationDay, ObservationPoint } from "../types";
 
 
 function formatTime(minute: number) {
@@ -72,7 +72,7 @@ export function VisibilityChart({
                         <text className="axis-label" x={x(minute)} y={height - plot.bottom + 28} textAnchor="middle">{formatTime(minute)}</text>
                     </g>
                 ))}
-                {day.points.slice(0, -1).map((point, index) => {
+                {day.points.slice(0, -1).map((point: ObservationPoint, index: number) => {
                     const nextPoint = day.points[index + 1];
                     if (Math.abs(nextPoint.score - point.score) > 0.1) { return; }
                     return <line key={point.minute} className="score-line" x1={x(point.minute)} y1={y(point.score)} x2={x(nextPoint.minute)} y2={y(nextPoint.score)} style={{ stroke: scoreColor((point.score + nextPoint.score) / 2) }} />;
