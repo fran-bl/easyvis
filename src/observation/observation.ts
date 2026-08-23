@@ -1,33 +1,17 @@
 import * as Astronomy from "astronomy-engine";
-import { DateTime } from "luxon";
 import { angularSeparation } from "../astronomy/coordinates";
 import { getLocalDay } from "../astronomy/time";
 import { calculatePositions } from "../astronomy/positions";
 import type { Target } from "../astronomy/targets";
 import { visibilityScore } from "./scoring";
+import type { ObservationDay, ObservationPoint } from "../types";
 
-export interface ObservationPoint {
-	minute: number;
-	localTime: DateTime;
-	score: number;
-	margin: number | null;
-	altitude: number;
-	azimuth: number;
-	sunAltitude: number;
-	sunAzimuth: number;
-	magnitude: number;
-}
 
-export interface ObservationDay {
-	target: Target;
-	date: DateTime;
-	timezone: string;
-	points: ObservationPoint[];
-}
+Astronomy.DefineStar(Astronomy.Body.Star1, 6.752477, -16.716117, 8.6);
 
 function truncate(input: string) {
 	if (input.length > 16) {
-		return input.substring(0, 16) + '...';
+		return input.substring(0, 16) + "...";
 	}
 	return input;
 }
@@ -66,7 +50,17 @@ export function calculateDay(
 			};
 		}
 
+		const sunDistanceAU = Astronomy.Illumination(Astronomy.Body.Sun, astroTime).geo_dist;
+
+		const pole = Astronomy.Horizon(astroTime, observer, 0, 90);
+		const siriusEq = Astronomy.Equator(Astronomy.Body.Star1, astroTime, observer, true, true);
+		const sirius = Astronomy.Horizon(astroTime, observer, siriusEq.ra, siriusEq.dec);
+
 		const magnitude = target.magnitude(astroTime);
+		const distanceAU = target.geoDistance(astroTime, false);
+		const distanceKm = target.geoDistance(astroTime, true);
+		const constellation = Astronomy.Constellation(positions.body.equator.ra, positions.body.equator.dec).name;
+
 		const result = visibilityScore(
 			magnitude,
 			positions.body.horizon.altitude,
@@ -84,7 +78,19 @@ export function calculateDay(
 			azimuth: positions.body.horizon.azimuth,
 			sunAltitude: positions.sun.horizon.altitude,
 			sunAzimuth: positions.sun.horizon.azimuth,
+			sunDistanceAU,
+			poleAltAz: {
+				altitude: pole.altitude,
+				azimuth: pole.azimuth
+			},
+			siriusAltAz: {
+				altitude: sirius.altitude,
+				azimuth: sirius.azimuth
+			},
 			magnitude,
+			distanceAU,
+			distanceKm,
+			constellation
 		});
 	}
 

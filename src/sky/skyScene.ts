@@ -8,6 +8,30 @@ import type { Target } from "../astronomy/targets";
 type SkyColorStop = { altitude: number; color: THREE.Color };
 type Label = { marker: THREE.Object3D; label: CSS2DObject };
 
+function localDirectionFromUV(u: number, v: number): THREE.Vector3 {
+    const theta = v * Math.PI;
+    const phi = u * 2 * Math.PI;
+
+    return new THREE.Vector3(
+        -Math.cos(phi) * Math.sin(theta),
+        Math.cos(theta),
+        -Math.sin(phi) * Math.sin(theta),
+    );
+}
+
+function localDirectionFromEquatorial(raHours: number, decDeg: number): THREE.Vector3 {
+    let u = 0.5 - raHours / 24;
+    u = ((u % 1) + 1) % 1;
+    const v = (90 - decDeg) / 180;
+
+    return localDirectionFromUV(u, v);
+}
+
+function projectPerpendicular(v: THREE.Vector3, axis: THREE.Vector3): THREE.Vector3 {
+    const a = axis.clone().normalize();
+    return v.clone().sub(a.multiplyScalar(v.dot(a)));
+}
+
 const SKY_COLOR_STOPS: SkyColorStop[] = [
     { altitude: -18, color: new THREE.Color(0x02040a) },
     { altitude: -12, color: new THREE.Color(0x0a1128) },
@@ -60,8 +84,17 @@ export class SkyScene {
     private sunLight: THREE.DirectionalLight;
     private ambientLight: THREE.AmbientLight;
     private skyDome!: THREE.Mesh;
+    private starSphere: THREE.Mesh | null = null;
     private bodyLabelGroup: THREE.Group;
     private pointLabels: Array<Label> = [];
+
+    private static readonly REFERENCE_STAR_RA_HOURS = 6.752477;
+    private static readonly REFERENCE_STAR_DEC_DEG = -16.716117;
+    private static readonly MOON_MEAN_DISTANCE_AU = 0.00257;
+    private static readonly SUN_MEAN_DISTANCE_AU = 1.0;
+    private static readonly MOON_BASE_SIZE = 0.4515;
+    private static readonly SUN_BASE_SIZE = 0.474075;
+    private static readonly BODY_BASE_SIZE = 0.1;
 
     constructor(container: HTMLElement, target: Target) {
         this.target = target;
@@ -107,20 +140,19 @@ export class SkyScene {
         this.scene.add(this.sunLight.target);
 
         if (this.target.name === "Moon") {
-            this.body = this.createLitBody(0xffffff, 0.4515);
+            this.body = this.createLitBody(0xffffff, SkyScene.MOON_BASE_SIZE);
         } else {
-            this.body = this.createBody(0xffffff, 0.1);
+            this.body = this.createBody(0xffffff, SkyScene.BODY_BASE_SIZE);
         }
 
-        this.sun = this.createBody(0xffcc55, 0.4515);
+        this.sun = this.createBody(0xffcc55, SkyScene.SUN_BASE_SIZE);
         this.sunGlow = this.createSunGlow();
         this.sunGlow.scale.set(15, 15, 1);
 
         this.body.renderOrder = 2;
         this.sun.renderOrder = 1;
-        this.sunGlow.renderOrder = 0;
-
-        (this.body.material as THREE.MeshBasicMaterial).depthTest = false;
+        this.sunGlow.renderOrder = 3;
+        this.skyDome.renderOrder = -2;
 
         this.scene.add(this.body);
         this.scene.add(this.sun);
@@ -139,9 +171,70 @@ export class SkyScene {
         this.animate();
     }
 
+    loadStarSphere(textureUrl: string) {
+        const loader = new THREE.TextureLoader();
+        const texture = loader.load(textureUrl);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.repeat.x = -1;
+        texture.needsUpdate = true;
+
+        const geometry = new THREE.SphereGeometry(105, 64, 32);
+        const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.BackSide,
+            depthWrite: false,
+        });
+
+        if (this.starSphere) {
+            this.scene.remove(this.starSphere);
+            this.starSphere.geometry.dispose();
+            (this.starSphere.material as THREE.MeshBasicMaterial).map?.dispose();
+            (this.starSphere.material as THREE.MeshBasicMaterial).dispose();
+        }
+
+        this.starSphere = new THREE.Mesh(geometry, material);
+        this.starSphere.renderOrder = -1;
+        this.scene.add(this.starSphere);
+    }
+
+    setStarSphereOrientation(
+        poleHorizontal: { altitude: number; azimuth: number },
+        referenceHorizontal: { altitude: number; azimuth: number },
+    ) {
+        if (!this.starSphere) {
+            return;
+        }
+
+        const localPoleDir = localDirectionFromEquatorial(0, 90);
+        const localReferenceDir = localDirectionFromEquatorial(
+            SkyScene.REFERENCE_STAR_RA_HOURS,
+            SkyScene.REFERENCE_STAR_DEC_DEG,
+        );
+
+        const worldPoleDir = horizontalToVector(poleHorizontal.altitude, poleHorizontal.azimuth, 1).normalize();
+        const worldReferenceDir = horizontalToVector(referenceHorizontal.altitude, referenceHorizontal.azimuth, 1).normalize();
+
+        const q1 = new THREE.Quaternion().setFromUnitVectors(localPoleDir.normalize(), worldPoleDir);
+        const rotatedReference = localReferenceDir.clone().normalize().applyQuaternion(q1);
+        const projRotated = projectPerpendicular(rotatedReference, worldPoleDir).normalize();
+        const projWorld = projectPerpendicular(worldReferenceDir, worldPoleDir).normalize();
+
+        let twistAngle = projRotated.angleTo(projWorld);
+        const cross = new THREE.Vector3().crossVectors(projRotated, projWorld);
+
+        if (cross.dot(worldPoleDir) < 0) {
+            twistAngle = -twistAngle;
+        }
+
+        const q2 = new THREE.Quaternion().setFromAxisAngle(worldPoleDir, twistAngle);
+
+        this.starSphere.quaternion.copy(q2.multiply(q1));
+    }
+
     private createSkyDome() {
-        const geometry = new THREE.SphereGeometry(100, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
-        const material = new THREE.MeshBasicMaterial({ color: 0x050812, side: THREE.BackSide, opacity: 0.8, depthWrite: false });
+        const geometry = new THREE.SphereGeometry(105, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+        const material = new THREE.MeshBasicMaterial({ color: 0x050812, side: THREE.BackSide, transparent: true, depthWrite: false });
         const dome = new THREE.Mesh(geometry, material);
 
         this.skyDome = dome;
@@ -149,7 +242,7 @@ export class SkyScene {
     }
 
     private createHorizon() {
-        const points = new THREE.Path().absarc(0, 0, 100, 0, Math.PI * 2).getSpacedPoints(64);
+        const points = new THREE.Path().absarc(0, 0, 105, 0, Math.PI * 2).getSpacedPoints(64);
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
         const material = new THREE.LineBasicMaterial({ color: 0x888888 });
         const horizon = new THREE.LineLoop(geometry, material);
@@ -169,14 +262,14 @@ export class SkyScene {
             { name: "SW", altitude: 0, azimuth: 225 },
             { name: "W", altitude: 0, azimuth: 270 },
             { name: "NW", altitude: 0, azimuth: 315 },
-            { name: "Zenith", altitude: 90, azimuth: 0, shape: "plus" },
-            { name: "Nadir", altitude: -90, azimuth: 0, shape: "plus" },
+            { name: "", altitude: 90, azimuth: 0, shape: "plus" },
+            { name: "", altitude: -90, azimuth: 0, shape: "plus" },
         ];
 
         for (const point of referencePoints) {
-            const position = horizontalToVector(point.altitude, point.azimuth, 100);
+            const position = horizontalToVector(point.altitude, point.azimuth, 105);
             const marker = point.shape === "plus"
-                ? this.createPlusMarker(0x888888, 3, 0.4)
+                ? this.createPlusMarker(0x888888, 1.5, 0.1)
                 : this.createDotMarker(0x888888, 0.1);
 
             const labelEl = document.createElement("div");
@@ -184,7 +277,7 @@ export class SkyScene {
             labelEl.textContent = point.name;
 
             const label = new CSS2DObject(labelEl);
-            label.position.set(0, -2.0, 0);
+            label.position.set(0, -1.0, 0);
 
             marker.add(label);
             marker.position.copy(position);
@@ -261,6 +354,7 @@ export class SkyScene {
         gradient.addColorStop(0.0, "rgba(255,255,255,1.0)");
         gradient.addColorStop(0.2, "rgba(255,238,200,0.85)");
         gradient.addColorStop(0.5, "rgba(255,214,140,0.25)");
+        gradient.addColorStop(0.8, "rgba(255,214,140,0.1)");
         gradient.addColorStop(1.0, "rgba(255,200,120,0.0)");
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, size, size);
@@ -282,7 +376,17 @@ export class SkyScene {
         this.sunGlow.position.copy(position);
 
         const material = this.sunGlow.material as THREE.SpriteMaterial;
+        const skyMaterial = this.skyDome.material as THREE.MeshBasicMaterial;
         const visibility = smoothstep01(altitude / 3);
+
+        let eclipseMagnitude = 0.0;
+
+        if (this.target.name === "Moon") {
+            eclipseMagnitude = 1 - THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(this.body.position.angleTo(position)), 0, 1);
+        }
+
+        material.opacity = 0.9 * visibility * (1.1 - eclipseMagnitude);
+        skyMaterial.opacity = 1 - Math.max(THREE.MathUtils.clamp(-altitude / 18, 0, 1), THREE.MathUtils.clamp(0.001 * Math.sinh(15 * eclipseMagnitude - 7.3), 0, 1));
 
         if (visibility <= 0) {
             this.sunGlow.visible = false;
@@ -291,14 +395,6 @@ export class SkyScene {
         }
 
         this.sunGlow.visible = true;
-
-        let eclipseMagnitude = 0.0;
-
-        if (this.target.name === "Moon") {
-            eclipseMagnitude = 1 - THREE.MathUtils.clamp(THREE.MathUtils.radToDeg(this.body.position.angleTo(position)), 0, 1);
-        }
-
-        material.opacity = 0.9 * visibility * (1 - eclipseMagnitude);
     }
 
     private setBodyLabelPosition() {
@@ -317,22 +413,29 @@ export class SkyScene {
         this.bodyLabelGroup.position.copy(labelDirection.multiplyScalar(100));
     }
 
-    setBodyPosition(altitude: number, azimuth: number) {
+    setBodyPosition(altitude: number, azimuth: number, distanceAU: number) {
         const position = horizontalToVector(altitude, azimuth, 100);
 
-        this.body.position.copy(position);
+        if (this.target.name === "Moon") {
+            const scale = SkyScene.MOON_MEAN_DISTANCE_AU / distanceAU;
+            this.body.scale.setScalar(scale);
+        }
 
+        this.body.position.copy(position);
         this.setBodyLabelPosition();
     }
 
-    setSunPosition(altitude: number, azimuth: number) {
-        const position = horizontalToVector(altitude, azimuth, 100);
+    setSunPosition(altitude: number, azimuth: number, distanceAU: number) {
+        const position = horizontalToVector(altitude, azimuth, 105);
 
         this.sun.position.copy(position);
         this.sunLight.position.copy(position);
         this.updateSkyColor(altitude);
         this.updateSunGlow(altitude, position);
-    }
+
+        const scale = SkyScene.SUN_MEAN_DISTANCE_AU / distanceAU;
+        this.sun.scale.setScalar(scale);
+}
 
     setCameraOrientation(altitude: number, azimuth: number) {
         const position = horizontalToVector(altitude, azimuth, 100);
@@ -388,7 +491,6 @@ export class SkyScene {
                 this.camera.updateProjectionMatrix();
             }
         } else {
-            console.log(distance)
             if (this.camera.fov < 60) {
                 this.camera.fov = Math.min(60, this.camera.fov + fovSpeed);
                 this.camera.updateProjectionMatrix();
@@ -406,6 +508,12 @@ export class SkyScene {
 
         (this.sunGlow.material as THREE.SpriteMaterial).map?.dispose();
         (this.sunGlow.material as THREE.SpriteMaterial).dispose();
+
+        if (this.starSphere) {
+            this.starSphere.geometry.dispose();
+            (this.starSphere.material as THREE.MeshBasicMaterial).map?.dispose();
+            (this.starSphere.material as THREE.MeshBasicMaterial).dispose();
+        }
 
         this.renderer.dispose();
         this.controls.dispose();

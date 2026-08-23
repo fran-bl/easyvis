@@ -29,9 +29,13 @@ export class Target {
         }
         return Astronomy.Illumination(this.body, time).mag;
     }
+
+    geoDistance(time: Astronomy.AstroTime, km: Boolean = false) {
+        return Astronomy.Illumination(this.body, time).geo_dist * (km ? 149597870.691 : 1);
+    }
 }
 
-export function makePlanetTarget(body: Astronomy.Body) {
+export function makeBodyTarget(body: Astronomy.Body) {
     return new Target(body, body);
 }
 

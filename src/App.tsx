@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import * as Astronomy from "astronomy-engine";
-import { makePlanetTarget } from "./astronomy/targets";
+import { makeBodyTarget, Target } from "./astronomy/targets";
 import "./index.css";
 import { SkyView } from "./components/skyView";
-import { Drawer, IconButton, Slider, type SliderProps } from "@mui/material";
+import { Checkbox, Drawer, FormControlLabel, FormGroup, IconButton, MenuItem, Select, Slider, type SelectChangeEvent, type SliderProps } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { VisibilityChart } from "./components/visibilityChart";
@@ -15,33 +15,52 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from "dayjs";
 import type { Location } from "./types";
+import { BodyInfo } from "./components/bodyInfo";
 
 
-const TARGET = makePlanetTarget(Astronomy.Body.Moon);
+const BODIES: string[] = ["Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
 
 function App() {
+  const [target, setTarget] = useState<Target>(() => makeBodyTarget(Astronomy.Body.Moon));
   const [location, setLocation] = useState<Location>({
-    lat: 51.505,
-    lng: -0.09,
+    lat: 51.500826,
+    lng: -0.124534,
     zoom: 8,
   })
   const [selectedDate, setSelectedDate] = useState(() =>
     getLocalDate(location.lat, location.lng),
   );
   const [day, setDay] = useState(() =>
-    calculateDay(TARGET, location.lat, location.lng, selectedDate),
+    calculateDay(target, location.lat, location.lng, selectedDate),
   );
   const [selectedMinute, setSelectedMinute] = useState(0);
   const selectedPoint = day.points[selectedMinute];
   const selectedTime = selectedPoint.localTime;
+  const [follow, setFollow] = useState(true);
   const [open, setOpen] = useState(false);
   const [drawerHeight, setDrawerHeight] = useState(0);
+
+  const handleBodySelected = (event: SelectChangeEvent) => {
+    let body = Astronomy.Body.Moon;
+
+    if (event.target.value in Astronomy.Body) {
+      body = Astronomy.Body[event.target.value as keyof typeof Astronomy.Body]
+    }
+
+    const newTarget = makeBodyTarget(body);
+    setTarget(newTarget);
+    setDay(calculateDay(newTarget, location.lat, location.lng, selectedDate));
+  };
+
+  const handleFollowChecked = (event: ChangeEvent<HTMLInputElement>) => {
+    setFollow(event.target.checked);
+  };
 
   const handleLocationSelected = (newLocation: Location) => {
     setLocation(newLocation);
     setDay(
       calculateDay(
-        TARGET,
+        target,
         newLocation.lat,
         newLocation.lng,
         selectedDate,
@@ -85,12 +104,7 @@ function App() {
 
   function updateDate(value: string) {
     setSelectedDate(value);
-    setDay(calculateDay(TARGET, location.lat, location.lng, value));
-  }
-
-  function formatNumber(value: number) {
-    const [whole, decimal] = value.toFixed(3).split(".");
-    return `${whole.padStart(3, " ")}.${decimal}`;
+    setDay(calculateDay(target, location.lat, location.lng, value));
   }
 
   return (
@@ -99,7 +113,6 @@ function App() {
         <header className="page-header">
           <div>
             <h1>Easy<span>vis</span></h1>
-            <p className="subtitle">^ Moram promijenit ovo at some point</p>
           </div>
           <LocationPicker onLocationSelected={handleLocationSelected} />
           <DatePicker
@@ -111,33 +124,30 @@ function App() {
             }}
             format="YYYY-MM-DD"
           />
+          <FormGroup>
+            <FormControlLabel control={<Checkbox checked={follow} onChange={handleFollowChecked} />} label="Follow body" />
+          </FormGroup>
         </header>
         <div className="body-information">
-          <div className="subtitle">
-            <p className="object-text">The <span className="object-info">{day.target.name}</span> at <span className="mono object-info">{selectedTime.toFormat("HH:mm")}</span>:</p>
-            <div className="object-details">
-              <div className="flex-item">
-                <span className="object-text">Visibility score:</span>
-                <span className="mono object-info">{formatNumber(selectedPoint.score)}</span>
-              </div>
-              <div className="flex-item">
-                <span className="object-text">Altitude:</span>
-                <span className="mono format-num object-info">{formatNumber(selectedPoint.altitude)}°</span>
-              </div>
-              <div className="flex-item">
-                <span className="object-text">Azimuth:</span>
-                <span className="mono format-num object-info">{formatNumber(selectedPoint.azimuth)}°</span>
-              </div>
-            </div>
+          <div className="object-text">
+            <Select
+              value={target.name}
+              onChange={handleBodySelected}
+            >
+              {Object.values(Astronomy.Body).filter(v => BODIES.includes(v)).map((item, i) => {
+                return (
+                  <MenuItem value={item} key={i}>{item}</MenuItem>
+                );
+              })}
+            </Select>
+            at <span className="mono object-info">{selectedTime.toFormat("HH:mm")}</span>:
           </div>
+          <BodyInfo target={target} selectedPoint={selectedPoint} />
         </div>
         <SkyView
           target={day.target}
-          bodyAltitude={selectedPoint.altitude}
-          bodyAzimuth={selectedPoint.azimuth}
-          sunAltitude={selectedPoint.sunAltitude}
-          sunAzimuth={selectedPoint.sunAzimuth}
-          followBody={true}
+          selectedPoint={selectedPoint}
+          followBody={follow}
         />
         <div className="observation-controls" style={{ bottom: drawerHeight }}>
           <IconButton

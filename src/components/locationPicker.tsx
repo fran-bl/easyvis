@@ -69,8 +69,8 @@ function convertToDMS(loc: Location) {
 export function LocationPicker({onLocationSelected}: { onLocationSelected: (location: Location) => void}) {
     const [open, setOpen] = useState(false);
     const [location, setLocation] = useState<Location>({
-        lat: 51.505,
-        lng: -0.09,
+        lat: 51.500826,
+        lng: -0.124534,
         zoom: 8,
     });
 
