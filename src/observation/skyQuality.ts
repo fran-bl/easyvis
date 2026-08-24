@@ -45,7 +45,6 @@ const inFlightRequests = new Map<string, Promise<Uint8Array>>();
 
 async function fetchTileBytes(tilex: number, tiley: number, signal?: AbortSignal): Promise<Uint8Array> {
     const key = `${tilex}_${tiley}`;
-    console.count("fetchTileBytes call for " + key);
 
     const cached = tileCache.get(key);
     if (cached) {
@@ -60,16 +59,13 @@ async function fetchTileBytes(tilex: number, tiley: number, signal?: AbortSignal
     const promise = (async () => {
         const url = `${TILE_BASE_PATH}/binary_tile_${tilex}_${tiley}.dat.gz`;
         const response = await fetch(url, { cache: "force-cache", signal });
-        console.log("status:", response.status);
-        console.log("content-length header:", response.headers.get("content-length"));
-        console.log("content-encoding header:", response.headers.get("content-encoding"));
-        console.log("all headers:", [...response.headers.entries()]);
+
         if (!response.ok) {
             throw new Error(`Failed to fetch tile ${key}: ${response.status}`);
         }
 
-        const buffer = await response.arrayBuffer();
-        console.log("actual arrayBuffer byteLength:", buffer.byteLength);
+        const decompressedStream = response.body!.pipeThrough(new DecompressionStream("gzip"));
+        const buffer = await new Response(decompressedStream).arrayBuffer();
         const bytes = new Uint8Array(buffer);
 
         const expectedSize = 2 + (TILE_SIZE * TILE_SIZE - 1);
