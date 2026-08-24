@@ -164,6 +164,7 @@ export class SkyScene {
         const bodyLabelEl = document.createElement("div");
         bodyLabelEl.className = "point-label";
         bodyLabelEl.textContent = this.target.name;
+        bodyLabelEl.style = "color: #0752ff; font-family: 'Space Grotesk'";
 
         const bodyLabel = new CSS2DObject(bodyLabelEl);
         this.bodyLabelGroup.add(bodyLabel);
@@ -253,7 +254,7 @@ export class SkyScene {
     private createHorizon() {
         const points = new THREE.Path().absarc(0, 0, 105, 0, Math.PI * 2).getSpacedPoints(64);
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({ color: 0x888888 });
+        const material = new THREE.LineBasicMaterial({ color: 0x0752ff });
         const horizon = new THREE.LineLoop(geometry, material);
 
         horizon.rotation.x = -Math.PI / 2;
@@ -278,12 +279,13 @@ export class SkyScene {
         for (const point of referencePoints) {
             const position = horizontalToVector(point.altitude, point.azimuth, 105);
             const marker = point.shape === "plus"
-                ? this.createPlusMarker(0x888888, 1.5, 0.1)
-                : this.createDotMarker(0x888888, 0.1);
+                ? this.createPlusMarker(0x0752ff, 1.5, 0.1)
+                : this.createDotMarker(0x0752ff, 0.1);
 
             const labelEl = document.createElement("div");
             labelEl.className = "point-label";
             labelEl.textContent = point.name;
+            labelEl.style = "color: #0752ff; font-family: 'Space Grotesk'";
 
             const label = new CSS2DObject(labelEl);
             label.position.set(0, -1.0, 0);
@@ -413,7 +415,7 @@ export class SkyScene {
         let reference = new THREE.Vector3(0, -1, 0);
 
         if (Math.abs(bodyDirection.dot(reference)) > 0.95) {
-            reference = new THREE.Vector3(1, 0, 0);
+            reference = new THREE.Vector3(-1, 0, 0);
         }
 
         const tangent = new THREE.Vector3().crossVectors(reference, bodyDirection).normalize();

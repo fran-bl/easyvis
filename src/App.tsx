@@ -3,7 +3,7 @@ import * as Astronomy from "astronomy-engine";
 import { makeBodyTarget, Target } from "./astronomy/targets";
 import "./index.css";
 import { SkyView } from "./components/skyView";
-import { Backdrop, Checkbox, CircularProgress, Drawer, FormControlLabel, FormGroup, IconButton, MenuItem, Select, Slider, type SelectChangeEvent, type SliderProps } from "@mui/material";
+import { Backdrop, Checkbox, CircularProgress, Drawer, FormControlLabel, FormGroup, IconButton, Slider, type SelectChangeEvent, type SliderProps } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { VisibilityChart } from "./components/visibilityChart";
@@ -17,8 +17,6 @@ import dayjs from "dayjs";
 import type { Location } from "./types";
 import { BodyInfo } from "./components/bodyInfo";
 
-
-const BODIES: string[] = ["Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
 
 function App() {
   const [dayLoaded, setDayLoaded] = useState(false);
@@ -36,10 +34,10 @@ function App() {
   const [day, setDay] = useState<Awaited<ReturnType<typeof calculateDay>> | null>(null);
   const [selectedMinute, setSelectedMinute] = useState(0);
   const selectedPoint = day?.points[selectedMinute] ?? null;
-  const selectedTime = selectedPoint?.localTime;
   const [follow, setFollow] = useState(true);
   const [open, setOpen] = useState(false);
-  const [drawerHeight, setDrawerHeight] = useState(0);
+  const [rawDrawerHeight, setRawDrawerHeight] = useState(0);
+  const drawerHeight = open ? rawDrawerHeight : 0;
 
   const handleBodySelected = (event: SelectChangeEvent) => {
     let body = Astronomy.Body.Moon;
@@ -80,9 +78,10 @@ function App() {
       setSelectedMinute((prev) => Math.min(prev, Math.max(newDay.points.length - 1, 0)));
       setDayLoaded(true);
     }).catch((err) => {
-      if (err.name !== "AbortError") {
-        console.error("Failed to calculate day:", err);
+      if (controller.signal.aborted) {
+        return;
       }
+      console.error("Failed to calculate day:", err);
     });
 
     return () => {
@@ -90,9 +89,9 @@ function App() {
     };
   }, [target, location.lat, location.lng, selectedDate]);
 
+
   useEffect(() => {
     if (!open) {
-      setDrawerHeight(0);
       return;
     }
 
@@ -101,12 +100,9 @@ function App() {
       return;
     }
 
-    const updateDrawerHeight = () => {
-      setDrawerHeight(drawerPaper.getBoundingClientRect().height);
-    };
-
-    updateDrawerHeight();
-    const resizeObserver = new ResizeObserver(updateDrawerHeight);
+    const resizeObserver = new ResizeObserver(() => {
+      setRawDrawerHeight(drawerPaper.getBoundingClientRect().height);
+    });
     resizeObserver.observe(drawerPaper);
 
     return () => resizeObserver.disconnect();
@@ -133,6 +129,7 @@ function App() {
           <div>
             <h1>Easy<span>vis</span></h1>
           </div>
+          <p className="description">Easily plan when or what to observe from your location with the naked eye!</p>
           <LocationPicker onLocationSelected={handleLocationSelected} />
           <DatePicker
             value={dayjs(selectedDate)}
@@ -148,20 +145,7 @@ function App() {
           </FormGroup>
         </header>
         <div className="body-information">
-          <div className="object-text">
-            <Select
-              value={target.name}
-              onChange={handleBodySelected}
-            >
-              {Object.values(Astronomy.Body).filter(v => BODIES.includes(v)).map((item, i) => {
-                return (
-                  <MenuItem value={item} key={i}>{item}</MenuItem>
-                );
-              })}
-            </Select>
-            at <span className="mono object-info">{selectedTime ? selectedTime.toFormat("HH:mm") : "--:--"}</span>:
-          </div>
-          {selectedPoint && <BodyInfo target={target} selectedPoint={selectedPoint} />}
+          {selectedPoint && <BodyInfo target={target} selectedPoint={selectedPoint} onSelectBody={handleBodySelected} />}
         </div>
         {day && selectedPoint && (
           <SkyView

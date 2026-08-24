@@ -53,7 +53,7 @@ function convertToDMS(loc: Location) {
         const minutes = Math.floor(minutesNotTruncated);
         const seconds = ((minutesNotTruncated - minutes) * 60).toFixed(1);
 
-        let direction = "";
+        let direction;
         if (isLat) {
             direction = val >= 0 ? "N" : "S";
         } else {

@@ -1,75 +1,27 @@
-# React + TypeScript + Vite
+# Easyvis
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Easyvis is a web app for planning astronomical observations. Pick a target along with a location and date, and Easyvis calculates its visibility throughout the night: altitude, azimuth, apparent magnitude, and a computed visibility score that accounts for sky brightness, moonlight, twilight, and atmospheric extinction. A 3D sky dome lets you see the object's position against the real constellations for that moment, and a timeline lets you scrub through the day to see how visibility changes minute by minute.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Visibility scoring based on sky brightness, lunar interference, twilight, and airmass extinction
+- Interactive 3D sky view with an accurate constellation map, sun, and moon
+- Location-aware sky darkness (SQM) lookup, so visibility estimates reflect real light pollution at the chosen site
+- Day/night timeline scrubbing with a visibility chart
+- Location picker with an interactive map
 
-## React Compiler
+## Acknowledgements
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Sky darkness (SQM) data is derived from the light pollution atlas created by **David Lorenz** ([djlorenz.github.io/astronomy](https://djlorenz.github.io/astronomy/lp/overlay/dark.html)), based on modeled atmospheric light propagation from VIIRS satellite imagery. Many thanks for making this data publicly available.
 
-## Expanding the ESLint configuration
+## License
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+This is a personal project, not intended for public distribution or reuse.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Tech stack
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+- React + TypeScript
+- Three.js for the 3D sky rendering
+- [astronomy-engine](https://github.com/cosinekitty/astronomy) for astronomical calculations
+- MUI for UI components
+- Leaflet for the location picker
