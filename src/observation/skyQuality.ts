@@ -93,6 +93,10 @@ export async function skyQualityAt(lat: number, lon: number): Promise<SkyQuality
 
     const data = await fetchTileBytes(coords.tilex, coords.tiley);
     const compressed = decodeValueAt(data, coords.ix, coords.iy);
+    if (!Number.isFinite(compressed)) {
+        console.error("Bad decode:", { coords, dataLength: data.length });
+        throw new Error("Corrupt tile decode");
+    }
 
     const brightnessRatio = compressedToRatio(compressed);
     const sqmZenith = ratioToMpsas(brightnessRatio);

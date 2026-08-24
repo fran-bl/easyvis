@@ -18,17 +18,20 @@ import "leaflet/dist/leaflet.css";
 
 
 const DefaultIcon = L.icon({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
+    iconRetinaUrl: markerIcon2x,
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41],
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
+function normalizeLongitude(lng: number): number {
+    return ((lng + 180) % 360 + 360) % 360 - 180;
+}
 
 function MapClickHandler({
     onLocationChange,
@@ -66,7 +69,7 @@ function convertToDMS(loc: Location) {
     };
 }
 
-export function LocationPicker({onLocationSelected}: { onLocationSelected: (location: Location) => void}) {
+export function LocationPicker({ onLocationSelected }: { onLocationSelected: (location: Location) => void }) {
     const [open, setOpen] = useState(false);
     const [location, setLocation] = useState<Location>({
         lat: 51.500826,
@@ -84,8 +87,8 @@ export function LocationPicker({onLocationSelected}: { onLocationSelected: (loca
 
     const setMarkerPosition = (e: LeafletMouseEvent): void => {
         const newLocation = {
-            lat: e.latlng.lat,
-            lng: e.latlng.lng,
+            lat: Math.max(-90, Math.min(90, e.latlng.lat)),
+            lng: normalizeLongitude(e.latlng.lng),
             zoom: 8,
         };
 
@@ -106,8 +109,11 @@ export function LocationPicker({onLocationSelected}: { onLocationSelected: (loca
                 <div className="map">
                     <MapContainer
                         center={[location.lat, location.lng]}
+                        maxBounds={[[-90, -180], [90, 180]]}
+                        maxBoundsViscosity={1.0}
                         zoom={location.zoom}
                         scrollWheelZoom={true}
+                        minZoom={2}
                     >
                         <TileLayer
                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
