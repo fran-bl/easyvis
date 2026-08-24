@@ -5,6 +5,9 @@ import { calculatePositions } from "../astronomy/positions";
 import type { Target } from "../astronomy/targets";
 import { visibilityScore } from "./scoring";
 import type { ObservationDay, ObservationPoint } from "../types";
+import { createSkyBrightnessCalculator } from "./skyBrightness";
+import { OBSERVATION_CONFIG } from "../config/observationConfig";
+import { skyQualityAt } from "./skyQuality";
 
 
 Astronomy.DefineStar(Astronomy.Body.Star1, 6.752477, -16.716117, 8.6);
@@ -16,13 +19,13 @@ function truncate(input: string) {
 	return input;
 }
 
-export function calculateDay(
+export async function calculateDay(
 	target: Target,
 	latitude: number,
 	longitude: number,
 	date: Date | string = new Date(),
 	offsetDays = 0
-): ObservationDay {
+): Promise<ObservationDay> {
 	const localDay = getLocalDay(latitude, longitude, date).plus({ days: offsetDays });
 	const observer = new Astronomy.Observer(latitude, longitude, 0);
 	const points: ObservationPoint[] = [];
@@ -31,6 +34,11 @@ export function calculateDay(
 		const localTime = localDay.plus({ minutes: minute });
 		const astroTime = new Astronomy.AstroTime(localTime.toUTC().toJSDate());
 		const positions = calculatePositions(target, astroTime, observer);
+
+		const skyQuality = await skyQualityAt(latitude, longitude);
+		const { skyBrightnessMag } = createSkyBrightnessCalculator(
+			skyQuality?.sqmZenith ?? OBSERVATION_CONFIG.sky.sqmZenith
+		);
 
 		let moonInfo = null;
 
@@ -66,7 +74,8 @@ export function calculateDay(
 			positions.body.horizon.altitude,
 			positions.sun.horizon.altitude,
 			positions.elongation,
-			moonInfo
+			moonInfo,
+			skyBrightnessMag
 		);
 
 		points.push({

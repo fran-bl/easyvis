@@ -1,12 +1,18 @@
 import type { MoonInfo } from "../types";
 import { OBSERVATION_CONFIG } from "../config/observationConfig";
-import { airmass, skyBrightnessMag } from "./skyBrightness";
+import { airmass } from "./skyBrightness";
 
 
 const NELM_ANCHOR_DARK = [21.4, 6.0];
 const NELM_ANCHOR_DAY = [2.4, -4.0];
 const NELM_SLOPE = (NELM_ANCHOR_DARK[1] - NELM_ANCHOR_DAY[1]) / (NELM_ANCHOR_DARK[0] - NELM_ANCHOR_DAY[0]);
 const NELM_INTERCEPT = NELM_ANCHOR_DARK[1] - NELM_SLOPE * NELM_ANCHOR_DARK[0];
+
+type SkyBrightnessCalculator = (
+  objectAltitude: number,
+  sunAltitude: number,
+  moonInfo?: MoonInfo | null
+) => number;
 
 function nakedEyeLimitingMagnitude(skyMag: number) {
   return NELM_SLOPE * skyMag + NELM_INTERCEPT;
@@ -17,7 +23,8 @@ export function visibilityScore(
   objectAltitude: number,
   sunAltitude: number,
   elongation: number,
-  moonInfo: MoonInfo | null = null
+  moonInfo: MoonInfo | null = null,
+  skyBrightnessMag: SkyBrightnessCalculator
 ) {
   if (objectAltitude < OBSERVATION_CONFIG.visibility.minimumAltitude) {
     return { score: 0.0, margin: null };

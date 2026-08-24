@@ -8,9 +8,10 @@ interface SkyViewProps {
     target: Target;
     selectedPoint: ObservationPoint;
     followBody: boolean;
+    onStarSphereLoaded?: () => void;
 }
 
-export function SkyView({ target, selectedPoint, followBody }: SkyViewProps) {
+export function SkyView({ target, selectedPoint, followBody, onStarSphereLoaded }: SkyViewProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const skyRef = useRef<SkyScene | null>(null);
 
@@ -20,7 +21,7 @@ export function SkyView({ target, selectedPoint, followBody }: SkyViewProps) {
         }
 
         const sky = new SkyScene(containerRef.current, target);
-        sky.loadStarSphere(`${import.meta.env.BASE_URL}constellation_figures_16k.png`);
+        sky.loadStarSphere(`${import.meta.env.BASE_URL}constellation_figures_16k.png`).then(() => onStarSphereLoaded?.());
         skyRef.current = sky;
         const resizeObserver = new ResizeObserver(() => sky.resize());
         resizeObserver.observe(containerRef.current);

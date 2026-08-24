@@ -3,7 +3,7 @@ import * as Astronomy from "astronomy-engine";
 import { makeBodyTarget, Target } from "./astronomy/targets";
 import "./index.css";
 import { SkyView } from "./components/skyView";
-import { Checkbox, Drawer, FormControlLabel, FormGroup, IconButton, MenuItem, Select, Slider, type SelectChangeEvent, type SliderProps } from "@mui/material";
+import { Backdrop, Checkbox, CircularProgress, Drawer, FormControlLabel, FormGroup, IconButton, MenuItem, Select, Slider, type SelectChangeEvent, type SliderProps } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { VisibilityChart } from "./components/visibilityChart";
@@ -21,6 +21,9 @@ import { BodyInfo } from "./components/bodyInfo";
 const BODIES: string[] = ["Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
 
 function App() {
+  const [dayLoaded, setDayLoaded] = useState(false);
+  const [starSphereLoaded, setStarSphereLoaded] = useState(false);
+  const isInitialLoad = !(dayLoaded && starSphereLoaded);
   const [target, setTarget] = useState<Target>(() => makeBodyTarget(Astronomy.Body.Moon));
   const [location, setLocation] = useState<Location>({
     lat: 51.500826,
@@ -30,12 +33,10 @@ function App() {
   const [selectedDate, setSelectedDate] = useState(() =>
     getLocalDate(location.lat, location.lng),
   );
-  const [day, setDay] = useState(() =>
-    calculateDay(target, location.lat, location.lng, selectedDate),
-  );
+  const [day, setDay] = useState<Awaited<ReturnType<typeof calculateDay>> | null>(null);
   const [selectedMinute, setSelectedMinute] = useState(0);
-  const selectedPoint = day.points[selectedMinute];
-  const selectedTime = selectedPoint.localTime;
+  const selectedPoint = day?.points[selectedMinute] ?? null;
+  const selectedTime = selectedPoint?.localTime;
   const [follow, setFollow] = useState(true);
   const [open, setOpen] = useState(false);
   const [drawerHeight, setDrawerHeight] = useState(0);
@@ -49,7 +50,6 @@ function App() {
 
     const newTarget = makeBodyTarget(body);
     setTarget(newTarget);
-    setDay(calculateDay(newTarget, location.lat, location.lng, selectedDate));
   };
 
   const handleFollowChecked = (event: ChangeEvent<HTMLInputElement>) => {
@@ -58,14 +58,6 @@ function App() {
 
   const handleLocationSelected = (newLocation: Location) => {
     setLocation(newLocation);
-    setDay(
-      calculateDay(
-        target,
-        newLocation.lat,
-        newLocation.lng,
-        selectedDate,
-      ),
-    );
   };
 
   const onSliderValueChange: NonNullable<SliderProps["onChange"]> = (_event, value) => {
@@ -79,6 +71,24 @@ function App() {
   const toggleDrawer = (newOpen: boolean) => () => {
     setOpen(newOpen);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    calculateDay(target, location.lat, location.lng, selectedDate).then((newDay) => {
+      if (cancelled) {
+        return;
+      }
+
+      setDay(newDay);
+      setSelectedMinute((prev) => Math.min(prev, Math.max(newDay.points.length - 1, 0)));
+      setDayLoaded(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [target, location.lat, location.lng, selectedDate]);
 
   useEffect(() => {
     if (!open) {
@@ -104,11 +114,20 @@ function App() {
 
   function updateDate(value: string) {
     setSelectedDate(value);
-    setDay(calculateDay(target, location.lat, location.lng, value));
   }
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Backdrop
+        open={isInitialLoad}
+        sx={{
+          color: "#0752ff",
+          zIndex: 1000,
+          backgroundColor: "rgba(0, 0, 0, 1)"
+        }}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
       <main className="app-shell">
         <header className="page-header">
           <div>
@@ -140,15 +159,18 @@ function App() {
                 );
               })}
             </Select>
-            at <span className="mono object-info">{selectedTime.toFormat("HH:mm")}</span>:
+            at <span className="mono object-info">{selectedTime ? selectedTime.toFormat("HH:mm") : "--:--"}</span>:
           </div>
-          <BodyInfo target={target} selectedPoint={selectedPoint} />
+          {selectedPoint && <BodyInfo target={target} selectedPoint={selectedPoint} />}
         </div>
-        <SkyView
-          target={day.target}
-          selectedPoint={selectedPoint}
-          followBody={follow}
-        />
+        {day && selectedPoint && (
+          <SkyView
+            target={day.target}
+            selectedPoint={selectedPoint}
+            followBody={follow}
+            onStarSphereLoaded={() => setStarSphereLoaded(true)}
+          />
+        )}
         <div className="observation-controls" style={{ bottom: drawerHeight }}>
           <IconButton
             className="drawer-toggle"
@@ -170,11 +192,13 @@ function App() {
           }}
         >
           <section className="plot-section">
-            <VisibilityChart
-              day={day}
-              selectedMinute={selectedMinute}
-              onMinuteChange={setSelectedMinute}
-            />
+            {day && (
+              <VisibilityChart
+                day={day}
+                selectedMinute={selectedMinute}
+                onMinuteChange={setSelectedMinute}
+              />
+            )}
           </section>
         </Drawer>
       </main>

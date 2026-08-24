@@ -171,31 +171,40 @@ export class SkyScene {
         this.animate();
     }
 
-    loadStarSphere(textureUrl: string) {
-        const loader = new THREE.TextureLoader();
-        const texture = loader.load(textureUrl);
-        texture.colorSpace = THREE.SRGBColorSpace;
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.repeat.x = -1;
-        texture.needsUpdate = true;
+    loadStarSphere(textureUrl: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const loader = new THREE.TextureLoader();
+            loader.load(
+                textureUrl,
+                (texture) => {
+                    texture.colorSpace = THREE.SRGBColorSpace;
+                    texture.wrapS = THREE.RepeatWrapping;
+                    texture.repeat.x = -1;
+                    texture.needsUpdate = true;
 
-        const geometry = new THREE.SphereGeometry(105, 64, 32);
-        const material = new THREE.MeshBasicMaterial({
-            map: texture,
-            side: THREE.BackSide,
-            depthWrite: false,
+                    const geometry = new THREE.SphereGeometry(105, 64, 32);
+                    const material = new THREE.MeshBasicMaterial({
+                        map: texture,
+                        side: THREE.BackSide,
+                        depthWrite: false,
+                    });
+
+                    if (this.starSphere) {
+                        this.scene.remove(this.starSphere);
+                        this.starSphere.geometry.dispose();
+                        (this.starSphere.material as THREE.MeshBasicMaterial).map?.dispose();
+                        (this.starSphere.material as THREE.MeshBasicMaterial).dispose();
+                    }
+
+                    this.starSphere = new THREE.Mesh(geometry, material);
+                    this.starSphere.renderOrder = -1;
+                    this.scene.add(this.starSphere);
+                    resolve();
+                },
+                undefined,
+                (error) => reject(error)
+            );
         });
-
-        if (this.starSphere) {
-            this.scene.remove(this.starSphere);
-            this.starSphere.geometry.dispose();
-            (this.starSphere.material as THREE.MeshBasicMaterial).map?.dispose();
-            (this.starSphere.material as THREE.MeshBasicMaterial).dispose();
-        }
-
-        this.starSphere = new THREE.Mesh(geometry, material);
-        this.starSphere.renderOrder = -1;
-        this.scene.add(this.starSphere);
     }
 
     setStarSphereOrientation(
@@ -435,7 +444,7 @@ export class SkyScene {
 
         const scale = SkyScene.SUN_MEAN_DISTANCE_AU / distanceAU;
         this.sun.scale.setScalar(scale);
-}
+    }
 
     setCameraOrientation(altitude: number, azimuth: number) {
         const position = horizontalToVector(altitude, azimuth, 100);
@@ -476,7 +485,7 @@ export class SkyScene {
         const fovSpeed = 1.0;
 
         const minDistance = 1;
-        const maxDistance = 85;
+        const maxDistance = 1;
 
         const zoomIn = event.deltaY < 0;
         const distance = this.camera.position.length();

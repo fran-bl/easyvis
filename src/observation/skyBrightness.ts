@@ -44,21 +44,7 @@ function applyMoon(
     return bTotal + bMoon;
 }
 
-function nightSkyBrightnessMag(
-    objectAltitude: number,
-    moonInfo: MoonInfo | null,
-    k: number = OBSERVATION_CONFIG.sky.extinctionCoefficient,
-    zenithMag: number = OBSERVATION_CONFIG.sky.sqmZenith
-) {
-    const bZen = magToNanolamberts(zenithMag);
-    const xObj = airmass(objectAltitude);
-    const b0 = bZen * 10 ** (-0.4 * k * (xObj - 1)) * xObj;
-    const bTotal = applyMoon(b0, objectAltitude, moonInfo, k);
-    return nanolambertsToMag(bTotal);
-}
-
 const TWILIGHT_SUN_ALT = [-18.0, -15.0, -12.0, -9.0, -6.0, -3.0, 0.0, 5.0, 10.0, 20.0, 40.0, 90.0];
-const TWILIGHT_SKY_MAG = [OBSERVATION_CONFIG.sky.sqmZenith, 20.0, 19.3, 18.0, 16.3, 14.2, 10.7, 9.7, 4.5, 3.0, 2.5, 2.4];
 
 function pchipPrepare(x: Array<number>, y: Array<number>) {
     const n = x.length;
@@ -126,26 +112,38 @@ function pchipEval(state: { x: Array<number>, y: Array<number>, h: Array<number>
     return h00 * y[i] + h10 * h[i] * d[i] + h01 * y[i + 1] + h11 * h[i] * d[i + 1];
 }
 
-const TWILIGHT_INTERPOLATOR = pchipPrepare(TWILIGHT_SUN_ALT, TWILIGHT_SKY_MAG);
-
-function twilightZenithMag(sunAltitude: number) {
-    const clamped = Math.max(-18.0, Math.min(90.0, sunAltitude));
-    return pchipEval(TWILIGHT_INTERPOLATOR, clamped);
-}
-
-export function skyBrightnessMag(
-    objectAltitude: number,
-    sunAltitude: number,
-    moonInfo: MoonInfo | null = null
+export function createSkyBrightnessCalculator(
+    zenithMag: number = OBSERVATION_CONFIG.sky.sqmZenith,
+    k: number = OBSERVATION_CONFIG.sky.extinctionCoefficient
 ) {
-    if (sunAltitude <= -18.0) {
-        return nightSkyBrightnessMag(objectAltitude, moonInfo);
+    const twilightSkyMag = [zenithMag, 20.0, 19.3, 18.0, 16.3, 14.2, 10.7, 9.7, 4.5, 3.0, 2.5, 2.4];
+    const twilightInterpolator = pchipPrepare(TWILIGHT_SUN_ALT, twilightSkyMag);
+
+    function twilightZenithMag(sunAltitude: number) {
+        const clamped = Math.max(-18.0, Math.min(90.0, sunAltitude));
+        return pchipEval(twilightInterpolator, clamped);
     }
 
-    const zen = twilightZenithMag(sunAltitude);
-    const bZen = magToNanolamberts(zen);
-    const xObj = airmass(objectAltitude);
-    const b0 = bZen * 10 ** (-0.4 * OBSERVATION_CONFIG.sky.extinctionCoefficient * (xObj - 1)) * xObj;
-    const bTotal = applyMoon(b0, objectAltitude, moonInfo, OBSERVATION_CONFIG.sky.extinctionCoefficient);
-    return nanolambertsToMag(bTotal);
+    function nightSkyBrightnessMag(objectAltitude: number, moonInfo: MoonInfo | null) {
+        const bZen = magToNanolamberts(zenithMag);
+        const xObj = airmass(objectAltitude);
+        const b0 = bZen * 10 ** (-0.4 * k * (xObj - 1)) * xObj;
+        const bTotal = applyMoon(b0, objectAltitude, moonInfo, k);
+        return nanolambertsToMag(bTotal);
+    }
+
+    function skyBrightnessMag(objectAltitude: number, sunAltitude: number, moonInfo: MoonInfo | null = null) {
+        if (sunAltitude <= -18.0) {
+            return nightSkyBrightnessMag(objectAltitude, moonInfo);
+        }
+
+        const zen = twilightZenithMag(sunAltitude);
+        const bZen = magToNanolamberts(zen);
+        const xObj = airmass(objectAltitude);
+        const b0 = bZen * 10 ** (-0.4 * k * (xObj - 1)) * xObj;
+        const bTotal = applyMoon(b0, objectAltitude, moonInfo, k);
+        return nanolambertsToMag(bTotal);
+    }
+
+    return { skyBrightnessMag };
 }
