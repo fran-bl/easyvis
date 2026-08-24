@@ -30,11 +30,10 @@ input {
 }
 
 .page-header {
-    position: absolute;
+    position: fixed;
     top: 5px;
     left: 5px;
     width: 350px;
-    z-index: 1000;
     padding: 0 16px;
     border-radius: 12px;
     background: rgba(10, 14, 26, 0.25);
@@ -48,6 +47,17 @@ input {
 
 .page-header > * {
     margin: 15px 0px;
+}
+
+.header-container {
+    position: absolute;
+    z-index: 2;
+    top: 0px;
+    right: 0px;
+    align-items: start;
+    flex-direction: column;
+    gap: 20px;
+    pointer-events: auto;
 }
 
 .body-information {
@@ -117,10 +127,9 @@ h1 span {
 }
 
 .location-info {
-    position: absolute;
+    position: fixed;
     top: 10px;
     right: 10px;
-    z-index: 1000;
     padding: 10px 12px;
     background: white;
     border-radius: 6px;
@@ -295,7 +304,7 @@ h2 {
     margin: 0 !important;
     padding: 3px !important;
     border: 1px solid #0752ff !important;
-    width: 8vw;
+    width: 120px;
 }
 
 .MuiInputBase-root {
@@ -319,8 +328,8 @@ h2 {
 
 .object-details {
     position: fixed;
-    top: 16px;
-    right: 16px;
+    top: 5px;
+    right: 5px;
     width: 260px;
     padding: 14px 16px;
     border-radius: 12px;

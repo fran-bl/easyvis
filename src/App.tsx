@@ -125,25 +125,27 @@ function App() {
         <CircularProgress color="inherit" />
       </Backdrop>
       <main className="app-shell">
-        <header className="page-header">
-          <div>
-            <h1>Easy<span>vis</span></h1>
-          </div>
-          <p className="description">Easily plan when or what to observe from your location with the naked eye!</p>
-          <LocationPicker onLocationSelected={handleLocationSelected} />
-          <DatePicker
-            value={dayjs(selectedDate)}
-            onChange={(value) => {
-              if (value) {
-                updateDate(value.format("YYYY-MM-DD"));
-              }
-            }}
-            format="YYYY-MM-DD"
-          />
-          <FormGroup>
-            <FormControlLabel control={<Checkbox checked={follow} onChange={handleFollowChecked} />} label="Follow body" />
-          </FormGroup>
-        </header>
+        <div className="header-container">
+          <header className="page-header">
+            <div>
+              <h1>Easy<span>vis</span></h1>
+            </div>
+            <p className="description">Easily plan when or what to observe from your location with the naked eye!</p>
+            <LocationPicker onLocationSelected={handleLocationSelected} />
+            <DatePicker
+              value={dayjs(selectedDate)}
+              onChange={(value) => {
+                if (value) {
+                  updateDate(value.format("YYYY-MM-DD"));
+                }
+              }}
+              format="YYYY-MM-DD"
+            />
+            <FormGroup>
+              <FormControlLabel control={<Checkbox checked={follow} onChange={handleFollowChecked} />} label="Follow body" />
+            </FormGroup>
+          </header>
+        </div>
         <div className="body-information">
           {selectedPoint && <BodyInfo target={target} selectedPoint={selectedPoint} onSelectBody={handleBodySelected} />}
         </div>
