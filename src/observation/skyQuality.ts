@@ -41,32 +41,48 @@ function resolveTileCoords(lat: number, lon: number): TileCoords | null {
 }
 
 const tileCache = new Map<string, Uint8Array>();
+const inFlightRequests = new Map<string, Promise<Uint8Array>>();
 
 async function fetchTileBytes(tilex: number, tiley: number, signal?: AbortSignal): Promise<Uint8Array> {
-    const key = `$${tilex}_${tiley}`;
+    const key = `${tilex}_${tiley}`;
+    console.count("fetchTileBytes call for " + key);
+
     const cached = tileCache.get(key);
     if (cached) {
         return cached;
     }
 
-    const url = `${TILE_BASE_PATH}/binary_tile_${tilex}_${tiley}.dat.gz`;
-    const response = await fetch(url, { cache: "force-cache", signal });
-    if (!response.ok) {
-        throw new Error(`Failed to fetch tile ${key}: ${response.status}`);
+    const inFlight = inFlightRequests.get(key);
+    if (inFlight) {
+        return inFlight;
     }
 
-    const buffer = await response.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
+    const promise = (async () => {
+        const url = `${TILE_BASE_PATH}/binary_tile_${tilex}_${tiley}.dat.gz`;
+        const response = await fetch(url, { cache: "force-cache", signal });
+        if (!response.ok) {
+            throw new Error(`Failed to fetch tile ${key}: ${response.status}`);
+        }
 
-    const expectedSize = 2 + (TILE_SIZE * TILE_SIZE - 1);
-    if (bytes.length < expectedSize) {
-        throw new Error(
-            `Tile ${key} incomplete: got ${bytes.length} bytes, expected ${expectedSize}`
-        );
+        const buffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+
+        const expectedSize = 2 + (TILE_SIZE * TILE_SIZE - 1);
+        if (bytes.length < expectedSize) {
+            throw new Error(`Tile ${key} incomplete: got ${bytes.length} bytes, expected ${expectedSize}`);
+        }
+
+        tileCache.set(key, bytes);
+        return bytes;
+    })();
+
+    inFlightRequests.set(key, promise);
+
+    try {
+        return await promise;
+    } finally {
+        inFlightRequests.delete(key);
     }
-
-    tileCache.set(key, bytes);
-    return bytes;
 }
 
 function signedByte(b: number): number {
