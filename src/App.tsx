@@ -73,20 +73,20 @@ function App() {
   };
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
-    calculateDay(target, location.lat, location.lng, selectedDate).then((newDay) => {
-      if (cancelled) {
-        return;
-      }
-
+    calculateDay(target, location.lat, location.lng, selectedDate, controller.signal).then((newDay) => {
       setDay(newDay);
       setSelectedMinute((prev) => Math.min(prev, Math.max(newDay.points.length - 1, 0)));
       setDayLoaded(true);
+    }).catch((err) => {
+      if (err.name !== "AbortError") {
+        console.error("Failed to calculate day:", err);
+      }
     });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [target, location.lat, location.lng, selectedDate]);
 

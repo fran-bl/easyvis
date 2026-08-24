@@ -24,6 +24,7 @@ export async function calculateDay(
 	latitude: number,
 	longitude: number,
 	date: Date | string = new Date(),
+	signal?: AbortSignal,
 	offsetDays = 0
 ): Promise<ObservationDay> {
 	const localDay = getLocalDay(latitude, longitude, date).plus({ days: offsetDays });
@@ -35,7 +36,7 @@ export async function calculateDay(
 		const astroTime = new Astronomy.AstroTime(localTime.toUTC().toJSDate());
 		const positions = calculatePositions(target, astroTime, observer);
 
-		const skyQuality = await skyQualityAt(latitude, longitude);
+		const skyQuality = await skyQualityAt(latitude, longitude, signal);
 		const { skyBrightnessMag } = createSkyBrightnessCalculator(
 			skyQuality?.sqmZenith ?? OBSERVATION_CONFIG.sky.sqmZenith
 		);

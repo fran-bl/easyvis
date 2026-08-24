@@ -42,7 +42,7 @@ function resolveTileCoords(lat: number, lon: number): TileCoords | null {
 
 const tileCache = new Map<string, Uint8Array>();
 
-async function fetchTileBytes(tilex: number, tiley: number): Promise<Uint8Array> {
+async function fetchTileBytes(tilex: number, tiley: number, signal?: AbortSignal): Promise<Uint8Array> {
     const key = `$${tilex}_${tiley}`;
     const cached = tileCache.get(key);
     if (cached) {
@@ -50,13 +50,20 @@ async function fetchTileBytes(tilex: number, tiley: number): Promise<Uint8Array>
     }
 
     const url = `${TILE_BASE_PATH}/binary_tile_${tilex}_${tiley}.dat.gz`;
-    const response = await fetch(url);
+    const response = await fetch(url, { cache: "force-cache", signal });
     if (!response.ok) {
         throw new Error(`Failed to fetch tile ${key}: ${response.status}`);
     }
 
     const buffer = await response.arrayBuffer();
     const bytes = new Uint8Array(buffer);
+
+    const expectedSize = 2 + (TILE_SIZE * TILE_SIZE - 1);
+    if (bytes.length < expectedSize) {
+        throw new Error(
+            `Tile ${key} incomplete: got ${bytes.length} bytes, expected ${expectedSize}`
+        );
+    }
 
     tileCache.set(key, bytes);
     return bytes;
@@ -85,13 +92,13 @@ export interface SkyQualityResult {
     sqmZenith: number;
 }
 
-export async function skyQualityAt(lat: number, lon: number): Promise<SkyQualityResult | null> {
+export async function skyQualityAt(lat: number, lon: number, signal?: AbortSignal): Promise<SkyQualityResult | null> {
     const coords = resolveTileCoords(lat, lon);
     if (!coords) {
         return null;
     }
 
-    const data = await fetchTileBytes(coords.tilex, coords.tiley);
+    const data = await fetchTileBytes(coords.tilex, coords.tiley, signal);
     const compressed = decodeValueAt(data, coords.ix, coords.iy);
     if (!Number.isFinite(compressed)) {
         console.error("Bad decode:", { coords, dataLength: data.length });
